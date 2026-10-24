@@ -2377,6 +2377,9 @@ function render(){
   updateTabbar();
   renderCartBar();
   if(r==="delivery"&&id==="available")stopRingtone();
+  const authKey=["login","signup","forgot-password"].includes(r)?r:"";
+  if(authKey && $("#view").dataset.authView===authKey) return;
+  $("#view").dataset.authView=authKey;
   if(r==="login")LoginView();
   else if(r==="signup")SignupView();
   else if(r==="forgot-password")ForgotPasswordView();
