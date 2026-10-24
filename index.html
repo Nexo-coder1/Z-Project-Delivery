@@ -1795,7 +1795,6 @@ function SignupView(){
 $("#sg-submit").addEventListener("click",()=>{
     if(!getAuth()){alert("Sign up isn't available in this browser mode right now. Please try again in a normal (non-incognito) tab.");return}
     const name=$("#sg-name").value.trim();const mobile=$("#sg-mobile").value.trim();const pw=$("#sg-pw").value;
-    const refCode=$("#sg-ref").value.trim().toUpperCase();
     const errBox=$("#sg-error");errBox.style.display="none";
     if(!name||!mobile||!pw){errBox.textContent="Please fill all fields.";errBox.style.display="block";return}
     if(!zestoNormalizeMobile(mobile)){errBox.textContent="Enter a valid 10-digit mobile number.";errBox.style.display="block";return}
