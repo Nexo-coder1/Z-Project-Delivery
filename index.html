@@ -1758,7 +1758,7 @@ function LoginView(){
     }).catch(e=>{
       const code=e.code||"";
       if(code.includes("wrong-password")||code.includes("invalid-credential")||code.includes("invalid-login-credentials")){
-        errBox.innerHTML='Incorrect password. <a href="#/forgot-password" style="color:var(--accent);font-weight:700">Reset your password?</a>';
+        errBox.innerHTML='No account found with this mobile number. <a href="#/signup" style="color:var(--accent);font-weight:700">Create one?</a>';
       }else if(code.includes("user-not-found")){
         errBox.innerHTML='No account found with this email. <a href="#/signup" style="color:var(--accent);font-weight:700">Create one?</a>';
       }else{
@@ -1783,22 +1783,29 @@ function SignupView(){
         <div style="text-align:center;margin-top:14px;font-size:13px" class="muted">Already have an account? <a href="#/login" style="color:var(--accent);font-weight:700">Login</a></div>
       </div>
     </section>`;
-  $("#sg-submit").addEventListener("click",()=>{
+$("#sg-submit").addEventListener("click",()=>{
     if(!getAuth()){alert("Sign up isn't available in this browser mode right now. Please try again in a normal (non-incognito) tab.");return}
     const name=$("#sg-name").value.trim();const mobile=$("#sg-mobile").value.trim();const pw=$("#sg-pw").value;
+    const refCode=$("#sg-ref").value.trim().toUpperCase();
     const errBox=$("#sg-error");errBox.style.display="none";
     if(!name||!mobile||!pw){errBox.textContent="Please fill all fields.";errBox.style.display="block";return}
-    if(!/^\d{10}$/.test(mobile)){errBox.textContent="Mobile number must be exactly 10 digits.";errBox.style.display="block";return}
+    if(!zestoNormalizeMobile(mobile)){errBox.textContent="Enter a valid 10-digit mobile number.";errBox.style.display="block";return}
     if(pw.length<6){errBox.textContent="Password must be at least 6 characters.";errBox.style.display="block";return}
     const btn=$("#sg-submit");btn.disabled=true;btn.innerHTML="Creating account...";
-    let newUid=null;
-    zestoSignUp(getAuth(),mobile,pw).then(cred=>{
-      newUid=cred.user.uid;
-      return db.ref('users/'+newUid).set({name,mobile,createdAt:Date.now(),blocked:false});
-    }).then(()=>{
-      PROFILE.name=name;PROFILE.phone=mobile;PROFILE.isComplete=hasCompleteProfile();saveProfile();
-      ZESTO_AUTH_FLOW=false;zestoAppleSheet("Congratulations!","Your account has been created. Please complete the delivery registration form.",()=>routeTo("#/delivery/join-team"),{button:"Continue"});
-    }).catch(e=>{ZESTO_AUTH_FLOW=false;getAuth().signOut();errBox.textContent=e.message.replace("Firebase: ","");errBox.style.display="block";btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-user-plus"></i> Sign Up'});
+    const ten=zestoNormalizeMobile(mobile);
+    zestoSignUp(getAuth(),ten,pw).then(async cred=>{
+      const uid=cred.user.uid;
+      // नया signup सिर्फ "delivery_applicant" है: सिर्फ join-team form भर सकता है। "delivery" role admin approval के बाद मिलेगा।
+      await firebase.firestore().collection('userRoles').doc(uid).set({role:'delivery_applicant'});
+      await db.ref('users/'+uid).set({name,mobile:ten,createdAt:Date.now(),blocked:false,referralCode:generateReferralCode(name)});
+      PROFILE.name=name;PROFILE.email="";PROFILE.phone=ten;PROFILE.isComplete=false;saveProfile();
+      localStorage.removeItem("sf_referral_code");
+      if(refCode)recordReferral(refCode,uid,name,"");
+      ZESTO_AUTH_FLOW=false;
+      AUTH_USER=cred.user;authBootHandled=true;zestoHandleUser(cred.user);
+      toast("Account created! Please fill your delivery partner form.");
+      routeTo("#/delivery/join-team");render();
+    }).catch(e=>{ZESTO_AUTH_FLOW=false;errBox.textContent=(e.message||"Sign up failed. Please try again.").replace("Firebase: ","");errBox.style.display="block";btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-user-plus"></i> Sign Up'});
   });
 }
 function ForgotPasswordView(){
